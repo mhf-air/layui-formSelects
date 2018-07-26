@@ -184,7 +184,8 @@
 ``` css
 div[xm-select-skin=zhongguohong] .xm-select-title div.xm-select-label>span {background-color: #FF0000;color: #FFF;border: 1px solid #FF0000}
 div[xm-select-skin=zhongguohong] .xm-select-title div.xm-select-label>span i {background-color: #FF0000;color: #FFF}
-div[xm-select-skin=zhongguohong] dl dd.xm-select-this:not(.xm-dis-disabled) i {background-color: #FF0000;border-color: #FF0000;color: #FFF}
+div[xm-select-skin=zhongguohong] dl dd:not(.xm-dis-disabled) i {border-color: #FF0000}
+div[xm-select-skin=zhongguohong] dl dd.xm-select-this:not(.xm-dis-disabled) i {color: #FF0000}
 div[xm-select-skin=zhongguohong].xm-form-selected .xm-select,
 div[xm-select-skin=zhongguohong].xm-form-selected .xm-select:hover {border-color: #FF0000!important}
 ```
@@ -264,7 +265,7 @@ xm-select-search, 指定url后将开启远程搜搜, 不指定则为已有选项
 
 当输入的搜索内容不存在时, 动态创建输入内容的选项作为待选
 
-!> 创建条目时, 必须打开本地搜索模式
+创建条目时, 必须打开本地搜索模式
 
 <html>
 <select name="city" xm-select="search-create" xm-select-search xm-select-create>

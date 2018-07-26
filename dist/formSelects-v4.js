@@ -5,7 +5,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 /**
  * name: formSelects
  * 基于Layui Select多选
- * version: 4.0.0.0713
+ * version: 4.1.0.0726.beta
  * http://sun.faysunshine.com/layui/formSelects-v4/dist/formSelects-v4.js
  */
 (function (layui, window, factory) {
@@ -24,7 +24,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 		window.formSelects = factory();
 	}
 })(typeof layui == 'undefined' ? null : layui, window, function () {
-	var v = '4.0.0.0713',
+	var v = '4.1.0.0726.beta',
 	    NAME = 'xm-select',
 	    PNAME = 'xm-select-parent',
 	    INPUT = 'xm-select-input',
@@ -65,6 +65,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 	    data = {},
 	    events = {
 		on: {},
+		endOn: {},
 		filter: {},
 		maxTips: {}
 	},
@@ -86,8 +87,17 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 		beforeSuccess: null,
 		success: null,
 		error: null,
-		beforeSearch: null
+		beforeSearch: null,
+		response: {
+			statusCode: 0,
+			statusName: 'code',
+			msgName: 'msg',
+			dataName: 'data'
+		}
 	},
+	    ajaxs = {},
+	    fsConfig = {},
+	    fsConfigs = {},
 	    quickBtns = [{ icon: 'iconfont icon-quanxuan', name: '全选', click: function click(id, cm) {
 			cm.selectAll(id, true, true);
 		} }, { icon: 'iconfont icon-qingkong', name: '清空', click: function click(id, cm) {
@@ -98,15 +108,15 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			cm.skin(id);
 		} }],
 	    $ = window.$ || window.layui && window.layui.jquery,
+	    Vue = window.Vue || null,
 	    $win = $(window),
-	    ajaxs = {},
 	    FormSelects = function FormSelects(options) {
 		var _this = this;
 
 		this.config = {
 			name: null, //xm-select="xxx"
 			max: null,
-			maxTips: function maxTips(vals, val, max) {
+			maxTips: function maxTips(id, vals, val, max) {
 				var ipt = $('[xid="' + _this.config.name + '"]').prev().find('.' + NAME);
 				if (ipt.parents('.layui-form-item[pane]').length) {
 					ipt = ipt.parents('.layui-form-item[pane]');
@@ -118,6 +128,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			},
 			init: null, //初始化的选择值,
 			on: null, //select值发生变化
+			endOn: null,
 			filter: function filter(id, inputVal, val, isDisabled) {
 				return val.name.indexOf(inputVal) == -1;
 			},
@@ -125,7 +136,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			direction: 'auto',
 			height: null,
 			isEmpty: false,
-			btns: [quickBtns[0], quickBtns[1], quickBtns[2]],
+			btns: null,
 			searchType: 0,
 			create: function create(id, name) {
 				return Date.now();
@@ -140,15 +151,18 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 		};
 		this.select = null;
 		this.values = [];
+		$.extend(this.config, fsConfigs[options.name] || fsConfig);
 		$.extend(this.config, options);
+
+		if (isNaN(this.config.showCount) || this.config.showCount <= 0) {
+			this.config.showCount = 19921012;
+		}
 	};
 
 	//一些简单的处理方法
 	var Common = function Common() {
 		this.appender();
-		this.init();
 		this.on();
-		this.initVal();
 		this.onreset();
 	};
 
@@ -187,6 +201,23 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 				}
 			};
 		};
+
+		//拓展Array filter方法
+		if (!Array.prototype.filter) {
+			Array.prototype.filter = function (b) {
+				if (this === void 0 || this === null) {
+					throw new TypeError();
+				}var f = Object(this);var a = f.length >>> 0;if (typeof b !== "function") {
+					throw new TypeError();
+				}var e = [];var d = arguments[1];for (var c = 0; c < a; c++) {
+					if (c in f) {
+						var g = f[c];if (b.call(d, g, c, f)) {
+							e.push(g);
+						}
+					}
+				}return e;
+			};
+		};
 	};
 
 	Common.prototype.init = function (target) {
@@ -196,23 +227,28 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 		$(target ? target : 'select[' + NAME + ']').each(function (index, select) {
 			var othis = $(select),
 			    id = othis.attr(NAME),
-			    hasRender = othis.next('.layui-form-select'),
-			    disabled = select.disabled,
-			    max = othis.attr(MAX) - 0,
-			    isSearch = othis.attr(SEARCH) != undefined,
-			    searchUrl = isSearch ? othis.attr(SEARCH) : null,
-			    isCreate = othis.attr(CREATE) != undefined,
-			    isRadio = othis.attr(RADIO) != undefined,
-			    skin = othis.attr(SKIN),
-			    direction = othis.attr(DIRECTION),
-			    optionsFirst = select.options[0],
-			    height = othis.attr(HEIGHT),
-			    formname = othis.attr('name'),
-			    layverify = othis.attr('lay-verify'),
-			    layverType = othis.attr('lay-verType'),
-			    searchtype = othis.attr(SEARCH_TYPE) == 'dl' ? 1 : 0,
-			    showCount = othis.attr(SHOW_COUNT) - 0,
-			    placeholder = optionsFirst ? optionsFirst.value ? TIPS : optionsFirst.innerHTML || TIPS : TIPS,
+			    hasLayuiRender = othis.next('.layui-form-select'),
+			    hasRender = othis.next('.' + PNAME),
+			    options = {
+				name: id,
+				disabled: select.disabled,
+				max: othis.attr(MAX) - 0,
+				isSearch: othis.attr(SEARCH) != undefined,
+				searchUrl: _this2.isSearch ? othis.attr(SEARCH) : null,
+				isCreate: othis.attr(CREATE) != undefined,
+				radio: othis.attr(RADIO) != undefined,
+				skin: othis.attr(SKIN),
+				direction: othis.attr(DIRECTION),
+				optionsFirst: select.options[0],
+				height: othis.attr(HEIGHT),
+				formname: othis.attr('name') || othis.attr('_name'),
+				layverify: othis.attr('lay-verify'),
+				layverType: othis.attr('lay-verType'),
+				searchtype: othis.attr(SEARCH_TYPE) == 'dl' ? 1 : 0,
+				showCount: othis.attr(SHOW_COUNT) - 0,
+				placeholder: _this2.optionsFirst ? _this2.optionsFirst.value ? TIPS : _this2.optionsFirst.innerHTML || TIPS : TIPS,
+				btns: _this2.radio ? [quickBtns[1]] : [quickBtns[0], quickBtns[1], quickBtns[2]]
+			},
 			    value = othis.find('option[selected]').toArray().map(function (option) {
 				//获取已选中的数据
 				return {
@@ -220,94 +256,56 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 					val: option.value
 				};
 			}),
-			    fs = new FormSelects(isRadio ? { btns: [quickBtns[1]] } : {});
-
-			var hisFs = data[id];
-			data[id] = fs;
+			    fs = new FormSelects(options);
 
 			fs.values = value;
-			fs.config.init = value.concat([]);
-			fs.config.name = id;
-			fs.config.disabled = disabled;
-			fs.config.max = max;
-			fs.config.isSearch = isSearch;
-			fs.config.searchUrl = searchUrl;
-			fs.config.isCreate = isCreate;
-			fs.config.radio = isRadio;
-			fs.config.skin = skin;
-			fs.config.direction = direction;
-			fs.config.height = height;
-			fs.config.searchType = searchtype;
-			fs.config.formname = formname;
-			fs.config.layverify = layverify;
-			fs.config.layverType = layverType;
-			fs.config.searchType = searchtype;
-			fs.config.showCount = showCount;
-			fs.config.placeholder = placeholder;
 
-			if (hisFs) {
-				$.extend(true, fs.config, hisFs.config);
-				disabled = fs.config.disabled;
-				max = fs.config.max;
-				isSearch = fs.config.isSearch;
-				searchUrl = fs.config.searchUrl;
-				isRadio = fs.config.radio;
-				skin = fs.config.skin;
-				height = fs.config.height;
-				formname = fs.config.formname;
-				layverify = fs.config.layverify;
-				layverType = fs.config.layverType;
-				showCount = fs.config.showCount;
-				placeholder = fs.config.placeholder;
-
-				if (hisFs.config.init) {
-					fs.values = hisFs.config.init.map(function (item) {
-						if ((typeof item === 'undefined' ? 'undefined' : _typeof(item)) == 'object') {
-							return item;
-						}
-						return {
-							name: othis.find('option[value="' + item + '"]').text(),
-							val: item
-						};
-					}).filter(function (item) {
-						return item.name;
-					});
-					fs.config.init = fs.values.concat([]);
-				}
+			if (fs.config.init) {
+				fs.values = fs.config.init.map(function (item) {
+					if ((typeof item === 'undefined' ? 'undefined' : _typeof(item)) == 'object') {
+						return item;
+					}
+					return {
+						name: othis.find('option[value="' + item + '"]').text(),
+						val: item
+					};
+				}).filter(function (item) {
+					return item.name;
+				});
+				fs.config.init = fs.values.concat([]);
+			} else {
+				fs.config.init = value.concat([]);
 			}
 
-			if (isNaN(showCount) || showCount <= 0) {
-				showCount = 19921012;
-			}
+			!fs.values && (fs.values = []);
+
+			data[id] = fs;
 
 			//先取消layui对select的渲染
+			hasLayuiRender[0] && hasLayuiRender.remove();
 			hasRender[0] && hasRender.remove();
 
 			//构造渲染div
-			var dinfo = _this2.renderSelect(id, placeholder, select);
-			var heightStyle = !height || height == 'auto' ? '' : 'xm-hg style="height: 34px;"';
-			var inputHtml = ['<div class="' + LABEL + '">', '<input type="text" fsw class="' + FORM_INPUT + ' ' + INPUT + '" ' + (isSearch ? '' : 'style="display: none;"') + ' autocomplete="off" debounce="0" />', '</div>'];
-			var reElem = $('<div class="' + FORM_SELECT + '" ' + SKIN + '="' + skin + '">\n\t\t\t\t\t<input class="' + HIDE_INPUT + '" value="" name="' + formname + '" lay-verify="' + layverify + '" lay-verType="' + layverType + '" type="text" style="position: absolute;bottom: 0; z-index: -1;width: 100%; height: 100%; border: none; opacity: 0;"/>\n\t\t\t\t\t<div class="' + FORM_TITLE + ' ' + (disabled ? DIS : '') + '">\n\t\t\t\t\t\t<div class="' + FORM_INPUT + ' ' + NAME + '" ' + heightStyle + '>\n\t\t\t\t\t\t\t' + inputHtml.join('') + '\n\t\t\t\t\t\t\t<i class="' + SANJIAO + '"></i>\n\t\t\t\t\t\t</div>\n\t\t\t\t\t\t<div class="' + TDIV + '">\n\t\t\t\t\t\t\t<input type="text" autocomplete="off" placeholder="' + placeholder + '" readonly="readonly" unselectable="on" class="' + FORM_INPUT + '">\n\t\t\t\t\t\t</div>\n\t\t\t\t\t\t<div></div>\n\t\t\t\t\t</div>\n\t\t\t\t\t<dl xid="' + id + '" class="' + DL + ' ' + (isRadio ? RADIO : '') + '">' + dinfo + '</dl>\n\t\t\t\t</div>');
+			var dinfo = _this2.renderSelect(id, fs.config.placeholder, select);
+			var heightStyle = !fs.config.height || fs.config.height == 'auto' ? '' : 'xm-hg style="height: 34px;"';
+			var inputHtml = ['<div class="' + LABEL + '">', '<input type="text" fsw class="' + FORM_INPUT + ' ' + INPUT + '" ' + (fs.config.isSearch ? '' : 'style="display: none;"') + ' autocomplete="off" debounce="0" />', '</div>'];
+			var reElem = $('<div class="' + FORM_SELECT + '" ' + SKIN + '="' + fs.config.skin + '">\n\t\t\t\t\t<input class="' + HIDE_INPUT + '" value="" name="' + fs.config.formname + '" lay-verify="' + fs.config.layverify + '" lay-verType="' + fs.config.layverType + '" type="text" style="position: absolute;bottom: 0; z-index: -1;width: 100%; height: 100%; border: none; opacity: 0;"/>\n\t\t\t\t\t<div class="' + FORM_TITLE + ' ' + (fs.config.disabled ? DIS : '') + '">\n\t\t\t\t\t\t<div class="' + FORM_INPUT + ' ' + NAME + '" ' + heightStyle + '>\n\t\t\t\t\t\t\t' + inputHtml.join('') + '\n\t\t\t\t\t\t\t<i class="' + SANJIAO + '"></i>\n\t\t\t\t\t\t</div>\n\t\t\t\t\t\t<div class="' + TDIV + '">\n\t\t\t\t\t\t\t<input type="text" autocomplete="off" placeholder="' + fs.config.placeholder + '" readonly="readonly" unselectable="on" class="' + FORM_INPUT + '">\n\t\t\t\t\t\t</div>\n\t\t\t\t\t\t<div></div>\n\t\t\t\t\t</div>\n\t\t\t\t\t<dl xid="' + id + '" class="' + DL + ' ' + (fs.config.radio ? RADIO : '') + '">' + dinfo + '</dl>\n\t\t\t\t</div>');
 
-			if (hisFs) {
-				$('dl[xid="' + id + '"]').parents('.' + PNAME).html(reElem);
-				fs.select = othis;
-			} else {
-				//包裹一个div
-				othis.wrap('<div class="' + PNAME + '" FS_ID="' + id + '"></div>');
-				othis.after(reElem);
-				fs.select = othis.remove();
-			}
+			var $parent = $('<div class="' + PNAME + '" FS_ID="' + id + '"></div>');
+			$parent.append(reElem);
+			othis.after($parent);
+			othis.attr('lay-ignore', '');
+			othis.removeAttr('name') && othis.attr('_name', fs.config.formname);
 
 			//如果可搜索, 加上事件
-			if (isSearch) {
+			if (fs.config.isSearch) {
 				ajaxs[id] = $.extend(true, {}, ajax, {
-					searchUrl: searchUrl
+					searchUrl: fs.config.searchUrl
 				});
 				$(document).on('input', 'div.' + PNAME + '[FS_ID="' + id + '"] .' + INPUT, function (e) {
-					_this2.search(id, e, searchUrl);
+					_this2.search(id, e, fs.config.searchUrl);
 				});
-				if (searchUrl) {
+				if (fs.config.searchUrl) {
 					//触发第一次请求事件
 					_this2.triggerSearch(reElem, true);
 				}
@@ -364,7 +362,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			//遍历选项, 选择可以显示的值
 			reElem.find('dl dd:not(.' + FORM_SELECT_TIPS + ')').each(function (idx, item) {
 				var _item = $(item);
-				var searchFun = data[id].config.filter || events.filter[id];
+				var searchFun = events.filter[id] || data[id].config.filter;
 				if (searchFun && searchFun(id, inputValue, {
 					name: _item.find('span').attr('name'),
 					val: _item.attr('lay-value')
@@ -434,19 +432,19 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 				}
 				ajaxConfig.beforeSuccess && ajaxConfig.beforeSuccess instanceof Function && (res = ajaxConfig.beforeSuccess(id, searchUrl, inputValue, res));
 				if (_this5.isArray(res)) {
-					res = {
-						code: 0,
-						msg: "",
-						data: res
-					};
+					var newRes = {};
+					newRes[ajaxConfig.response.statusName] = ajaxConfig.response.statusCode;
+					newRes[ajaxConfig.response.msgName] = "";
+					newRes[ajaxConfig.response.dataName] = res;
+					res = newRes;
 				}
-				if (res.code != 0) {
-					reElem.find('dd.' + FORM_NONE).addClass(FORM_EMPTY).text(res.msg);
+				if (res[ajaxConfig.response.statusName] != ajaxConfig.response.statusCode) {
+					reElem.find('dd.' + FORM_NONE).addClass(FORM_EMPTY).text(res[ajaxConfig.response.msgName]);
 				} else {
 					reElem.find('dd.' + FORM_NONE).removeClass(FORM_EMPTY);
 					//获得已选择的values
-					_this5.renderData(id, res.data, isLinkage, linkageWidth, isSearch);
-					data[id].config.isEmpty = res.data.length == 0;
+					_this5.renderData(id, res[ajaxConfig.response.dataName], isLinkage, linkageWidth, isSearch);
+					data[id].config.isEmpty = res[ajaxConfig.response.dataName].length == 0;
 				}
 				ajaxConfig.success && ajaxConfig.success instanceof Function && ajaxConfig.success(id, searchUrl, inputValue, res);
 			},
@@ -466,7 +464,9 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 				//渲染多级联动
 				var result = [],
 				    index = 0,
-				    temp = { "0": dataArr },
+				    temp = {
+					"0": dataArr
+				},
 				    ajaxConfig = ajaxs[id] ? ajaxs[id] : ajax;
 
 				var _loop = function _loop() {
@@ -616,7 +616,10 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			quickBtn.push(_this7.createQuickBtn(item, right));
 		});
 		quickBtn.push('</div>');
-		quickBtn.push(this.createQuickBtn({ icon: 'iconfont icon-caidan', name: '' }));
+		quickBtn.push(this.createQuickBtn({
+			icon: 'iconfont icon-caidan',
+			name: ''
+		}));
 		return quickBtn.join('');
 	};
 
@@ -727,6 +730,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 		var _this10 = this;
 
 		//一次性事件绑定
+
 		$(target ? target : document).off('click', '.' + FORM_TITLE).on('click', '.' + FORM_TITLE, function (e) {
 			var othis = $(e.target),
 			    title = othis.is(FORM_TITLE) ? othis : othis.parents('.' + FORM_TITLE),
@@ -751,7 +755,10 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			//如果点击的是input的右边, focus一下
 			if (title.find('.' + INPUT + ':not(readonly)')[0]) {
 				var input = title.find('.' + INPUT),
-				    epos = { x: e.pageX, y: e.pageY },
+				    epos = {
+					x: e.pageX,
+					y: e.pageY
+				},
 				    pos = _this10.getPosition(title[0]),
 				    width = title.width();
 				while (epos.x > pos.x) {
@@ -787,7 +794,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			_this10.changeShow(title, !title.parents('.' + FORM_SELECT).hasClass(FORM_SELECTED));
 			return false;
 		});
-		$(target ? target : document).find('dl.' + DL).off('click').on('click', function (e) {
+		$(target ? target : document).off('click', 'dl.' + DL).on('click', 'dl.' + DL, function (e) {
 			var othis = $(e.target);
 			if (othis.is('.' + LINKAGE) || othis.parents('.' + LINKAGE)[0]) {
 				//linkage的处理
@@ -935,12 +942,19 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 		this.retop(label.parents('.' + FORM_SELECT));
 		this.calcLabelLeft(label, 0, true);
 		//表单默认值
-		label.parents('.' + PNAME).find('.' + HIDE_INPUT).val(data[key].values.map(function (val) {
-			return val.val;
-		}).join(','));
+		this.setHidnVal(key, label);
 		//title值
 		label.parents('.' + FORM_TITLE + ' .' + NAME).attr('title', data[key].values.map(function (val) {
 			return val.name;
+		}).join(','));
+	};
+
+	Common.prototype.setHidnVal = function (key, label) {
+		if (!label || !label[0]) {
+			return;
+		}
+		label.parents('.' + PNAME).find('.' + HIDE_INPUT).val(data[key].values.map(function (val) {
+			return val.val;
 		}).join(','));
 	};
 
@@ -979,14 +993,15 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			val: dd.attr('lay-value')
 		},
 		    vals = data[id].values,
-		    on = data[id].config.on || events.on[id];
+		    on = data[id].config.on || events.on[id],
+		    endOn = data[id].config.endOn || events.endOn[id];
 		if (oval) {
 			val = oval;
 		}
 		var fs = data[id];
 		if (isAdd && fs.config.max && fs.values.length >= fs.config.max) {
-			var maxTipsFun = data[id].config.maxTips || events.maxTips[id];
-			maxTipsFun && maxTipsFun(id, vals.concat([]), val, fs.max);
+			var maxTipsFun = events.maxTips[id] || data[id].config.maxTips;
+			maxTipsFun && maxTipsFun(id, vals.concat([]), val, fs.config.max);
 			return;
 		}
 		if (!notOn) {
@@ -1008,6 +1023,8 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 		fs.config.clearInput && this.clearInput(id);
 
 		this.commonHanler(id, div);
+
+		!notOn && endOn && endOn instanceof Function && endOn(id, vals.concat([]), val, isAdd, dd && dd.hasClass(DISABLED));
 	};
 
 	Common.prototype.addLabel = function (id, div, val) {
@@ -1094,6 +1111,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 	Common.prototype.changeShow = function (children, isShow) {
 		//显示于隐藏
 		$('.layui-form-selected').removeClass('layui-form-selected');
+		$('.layui-laydate').remove();
 		var top = children.parents('.' + FORM_SELECT);
 		$('.' + PNAME + ' .' + FORM_SELECT).not(top).removeClass(FORM_SELECTED);
 		if (isShow) {
@@ -1137,6 +1155,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			var label = title.parents('.' + PNAME).parent().prev();
 			if (label.is('.layui-form-label') && title.parents('.layui-form-pane')[0]) {
 				height = height > 36 ? height + 4 : height;
+				!height && (height = 36);
 				title.css('height', height + 'px');
 				label.css({
 					height: height + 2 + 'px',
@@ -1260,7 +1279,10 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			y += e.offsetTop;
 			e = e.offsetParent;
 		}
-		return { x: x, y: y };
+		return {
+			x: x,
+			y: y
+		};
 	};
 
 	Common.prototype.onreset = function () {
@@ -1293,13 +1315,13 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 					data[id] ? data[id].config[name] = fun : events[name][id] = fun;
 				});
 			} else {
-				data[id] ? data[id].config[name] = fun : events[name][id] = fun;
+				data[id] ? (data[id].config[name] = fun, delete events[name][id]) : events[name][id] = fun;
 			}
 		}
 	};
 
 	Common.prototype.check = function (id) {
-		if ($('dl[xid="' + id + '"]').length) {
+		if ($('dl[xid="' + id + '"]').length || $('select[xm-select="' + id + '"]').length) {
 			return true;
 		} else {
 			delete data[id];
@@ -1308,16 +1330,48 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 	};
 
 	Common.prototype.render = function (id, select) {
-		if (this.check(id)) {
-			select = data[id].select;
-		}
 		common.init(select);
 		common.one($('dl[xid="' + id + '"]').parents('.' + PNAME));
 		common.initVal(id);
 	};
 
 	var Select4 = function Select4() {
+		var _this15 = this;
+
 		this.v = v;
+		this.render();
+
+		if (Vue) {
+			var VueFormSelects = {};
+			VueFormSelects.install = function (Vue, options) {
+				Vue.directive('xm-select', function (el, binding, vnode, oldVnode) {
+					var config = binding.value,
+					    id = config.id,
+					    vals = config.vals;
+					el.setAttribute('xm-select', id);
+					setTimeout(function () {
+						_this15.render(id, {
+							init: vals ? vals.concat([]) : null
+						});
+						if (vnode.children._isVList && common.check(id)) {
+							var _config = ajaxs[id] ? ajaxs[id] : ajax;
+							_this15.data(id, 'local', {
+								arr: vnode.children.map(function (item) {
+									var dt = {};
+									if (item.data && item.data.domProps) {
+										dt[_config['keyName']] = item.data.domProps.textContent;
+										dt[_config['keyVal']] = item.data.domProps.value;
+									}
+									item.data && item.data.attrs && (dt[_config['keyDis']] = item.data.attrs.disabled);
+									return dt;
+								})
+							}).value(id, vals);
+						}
+					}, 10);
+				});
+			};
+			Vue.use(VueFormSelects);
+		}
 	};
 	var common = new Common();
 
@@ -1393,8 +1447,8 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 		}
 	};
 
-	Select4.prototype.on = function (id, fun) {
-		common.bindEvent('on', id, fun);
+	Select4.prototype.on = function (id, fun, isEnd) {
+		common.bindEvent(isEnd ? 'endOn' : 'on', id, fun);
 		return this;
 	};
 
@@ -1428,20 +1482,17 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 	};
 
 	Select4.prototype.render = function (id, options) {
-		var _this15 = this;
-
 		if (id && (typeof id === 'undefined' ? 'undefined' : _typeof(id)) == 'object') {
 			options = id;
 			id = null;
 		}
-		var target = {};
-		id ? common.check(id) && (target[id] = data[id]) : target = data;
 
 		var config = options ? {
 			init: options.init,
 			disabled: options.disabled,
 			max: options.max,
 			isSearch: options.isSearch,
+			searchUrl: options.searchUrl,
 			isCreate: options.isCreate,
 			radio: options.radio,
 			skin: options.skin,
@@ -1460,20 +1511,22 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 			template: options.template,
 			clearInput: options.clearInput
 		} : {};
-
-		if (Object.getOwnPropertyNames(target).length) {
-			$.each(target, function (key, val) {
-				//恢复初始值
-				if (common.check(key)) {
-					_this15.value(key, []);
-					$.extend(data[key].config, config);
-					common.render(key, val.select);
-				}
-			});
+		if (id && !common.check(id)) {
+			return this;
 		}
+		if (id) {
+			fsConfigs[id] = {};
+			$.extend(fsConfigs[id], config);
+		} else {
+			$.extend(fsConfig, config);
+		}
+
 		($('select[' + NAME + '="' + id + '"]')[0] ? $('select[' + NAME + '="' + id + '"]') : $('select[' + NAME + ']')).each(function (index, select) {
 			var sid = select.getAttribute(NAME);
 			common.render(sid, select);
+			setTimeout(function () {
+				return common.setHidnVal(sid, $('select[xm-select="' + sid + '"] + div.' + PNAME + ' .' + LABEL));
+			}, 10);
 		});
 		return this;
 	};
@@ -1501,8 +1554,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 	Select4.prototype.data = function (id, type, config) {
 		if (!id || !type || !config) {
 			return this;
-		}
-		!common.check(id) && this.render(id);
+		}!common.check(id) && this.render(id);
 		this.value(id, []);
 		this.config(id, config);
 		if (type == 'local') {

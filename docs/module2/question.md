@@ -52,3 +52,21 @@ formSelects.value('xm-id', ['1', '2', '3']);
 > 10.如何查看版本
 
 打开源码, 最上面显示的version
+
+
+> 11.为什么远程搜索发送的是`json`数据
+
+```
+//formSelects.config方式是有三个参数的, 示例上第三个参数为true
+
+**
+ * 1.配置远程搜索, 请求头, 请求参数, 请求类型等
+ *
+ * formSelects.config(ID, Options, isJson);
+ *
+ * @param ID        xm-select的值
+ * @param Options   配置项
+ * @param isJson    是否传输json数据, true将添加请求头 Content-Type: application/json; charset=UTF-8
+ */
+
+```
