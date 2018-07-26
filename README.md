@@ -6,7 +6,7 @@
 
 ---
 
-[文档地址](https://hnzzmsf.github.io/layui-formSelects/docs/index.html)
+[文档地址](http://sun.faysunshine.com/layui-formSelects/docs/index.html)
 
 [演示站点](http://sun.faysunshine.com/layui/formSelects-v4/example/example_v4.html)
 
