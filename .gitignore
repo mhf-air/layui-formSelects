@@ -10,3 +10,4 @@ _docs
 test/
 *.iml
 UI/
+dist
