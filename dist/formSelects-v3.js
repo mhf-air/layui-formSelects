@@ -1,25 +1,5 @@
 "use strict";
 
-require("core-js/modules/es7.symbol.async-iterator");
-
-require("core-js/modules/es6.symbol");
-
-require("core-js/modules/es6.regexp.split");
-
-require("core-js/modules/es6.string.iterator");
-
-require("core-js/modules/es6.map");
-
-require("core-js/modules/es6.function.name");
-
-require("core-js/modules/es6.array.iterator");
-
-require("core-js/modules/web.dom.iterable");
-
-require("core-js/modules/es6.string.repeat");
-
-require("core-js/modules/es6.array.find");
-
 function _typeof(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
 /**
