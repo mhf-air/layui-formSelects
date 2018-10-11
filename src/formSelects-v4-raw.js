@@ -361,7 +361,12 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
       //如果可搜索, 加上事件
       if (fs.config.isSearch) {
         ajaxs[id] = $.extend({}, ajax, { searchUrl: fs.config.searchUrl }, ajaxs[id]);
-        $(document).on('input', 'div.' + PNAME + '[FS_ID="' + id + '"] .' + INPUT, function(e) {
+
+        // jh  ================================================================================
+        $('div.' + PNAME + '[FS_ID="' + id + '"] .' + INPUT).on('input', function(e) {
+          // $(document).on('input', 'div.' + PNAME + '[FS_ID="' + id + '"] .' + INPUT, function(e) {
+          // jh  ================================================================================
+
           _this2.search(id, e, fs.config.searchUrl);
         });
         if (fs.config.searchUrl) {
@@ -939,33 +944,45 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
         nextGroup.find('li[pid="' + othis.attr('xm-value') + '"]').removeClass('xm-select-linkage-hide');
 
         // jh  ================================================================================
-        var vals = [],
-          index = 0,
-          isAdd = !othis.hasClass('xm-select-this');
-        if (data[_id].config.radio) {
-          othis.parents('.xm-select-linkage').find('.xm-select-this').removeClass('xm-select-this');
-        }
-        do {
-          vals[index++] = {
-            name: othis.find('span').text(),
-            value: othis.attr('xm-value')
+        var _handleLinkage = function() {
+          var vals = [],
+            index = 0,
+            isAdd = !othis.hasClass('xm-select-this');
+          if (data[_id].config.radio) {
+            othis.parents('.xm-select-linkage').find('.xm-select-this').removeClass('xm-select-this');
+          }
+          do {
+            vals[index++] = {
+              name: othis.find('span').text(),
+              value: othis.attr('xm-value')
+            };
+            othis = othis.parents('.xm-select-linkage-group').prev().find('li[xm-value="' + othis.attr('pid') + '"]');
+          } while (othis.length);
+          vals.reverse();
+          var val = {
+            name: vals.map(function(item) {
+              return item.name;
+            }).join('/'),
+            value: vals.map(function(item) {
+              return item.value;
+            }).join('/')
           };
-          othis = othis.parents('.xm-select-linkage-group').prev().find('li[xm-value="' + othis.attr('pid') + '"]');
-        } while (othis.length);
-        vals.reverse();
-        var val = {
-          name: vals.map(function(item) {
-            return item.name;
-          }).join('/'),
-          value: vals.map(function(item) {
-            return item.value;
-          }).join('/')
-        };
-        _this11.handlerLabel(_id, null, isAdd, val);
+          _this11.handlerLabel(_id, null, isAdd, val);
+        }
+        var ajaxConfig = ajaxs[_id] || ajax;
+        if (ajaxConfig._linkageType === "all") {
+          _handleLinkage()
+        }
         // jh  ================================================================================
 
         //如果没有下一个group, 或没有对应的值
-        if (!nextGroup[0] || nextGroup.find('li:not(.xm-select-linkage-hide)').length == 0) {} else {
+        if (!nextGroup[0] || nextGroup.find('li:not(.xm-select-linkage-hide)').length == 0) {
+          // jh  ================================================================================
+          if (ajaxConfig._linkageType !== "all") {
+            _handleLinkage()
+          }
+          // jh  ================================================================================
+        } else {
           nextGroup.removeClass('xm-select-linkage-hide');
         }
         return false;
@@ -1219,6 +1236,11 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
     if (oval) {
       val = oval;
     }
+
+    // jh ================================================================================
+    val.val = val.value
+    // jh ================================================================================
+
     var fs = data[id];
     if (isAdd && fs.config.max && fs.values.length >= fs.config.max) {
       var maxTipsFun = events.maxTips[id] || data[id].config.maxTips;
