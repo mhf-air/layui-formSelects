@@ -43,6 +43,7 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
     DIRECTION = "xm-select-direction",
     HEIGHT = 'xm-select-height',
     // jh ================================================================================
+    POPUP_WIDTH = 'xm-select-popup-width',
     POPUP_HEIGHT = 'xm-select-popup-height',
     // jh ================================================================================
     DISABLED = 'xm-dis-disabled',
@@ -307,6 +308,7 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
           optionsFirst: select.options[0],
           height: othis.attr(HEIGHT),
           // jh ================================================================================
+          popupWidth: othis.attr(POPUP_WIDTH),
           popupHeight: othis.attr(POPUP_HEIGHT),
           // jh ================================================================================
           formname: othis.attr('name') || othis.attr('_name'),
@@ -1404,20 +1406,36 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
     }
     var reHeight = div[0].offsetTop + div.height() + base;
     // jh ================================================================================
+    var popupWidth = "100%"
     var popupHeight = "auto"
-    if (fs && fs.config.popupHeight) {
-      var a = fs.config.popupHeight
-      if (a[0] !== "-") {
-        a = "-" + a
+
+    var changedPopupWidth = false
+    var changedPopupHeight = false
+
+    if (fs && fs.config) {
+      if (fs.config.popupWidth) {
+        popupWidth = fs.config.popupWidth
+        changedPopupWidth = true
       }
-      popupHeight = a
+      if (fs.config.popupHeight) {
+        var a = fs.config.popupHeight
+        if (a[0] !== "-") {
+          a = "-" + a
+        }
+        popupHeight = a
+        changedPopupHeight = true
+      }
     }
+
     if (up) {
       var style = {
         top: popupHeight,
         bottom: reHeight + 3 + 'px'
       }
-      if (popupHeight !== "auto") {
+      if (changedPopupWidth) {
+        style.width = popupWidth
+      }
+      if (changedPopupHeight) {
         style.maxHeight = fs.config.popupHeight
       }
       dl.css(style)
@@ -1426,7 +1444,10 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
         top: reHeight + 'px',
         bottom: popupHeight,
       }
-      if (popupHeight !== "auto") {
+      if (changedPopupWidth) {
+        style.width = popupWidth
+      }
+      if (changedPopupHeight) {
         style.maxHeight = fs.config.popupHeight
       }
       dl.css(style)
