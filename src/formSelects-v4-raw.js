@@ -42,6 +42,9 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
     SKIN = 'xm-select-skin',
     DIRECTION = "xm-select-direction",
     HEIGHT = 'xm-select-height',
+    // jh ================================================================================
+    POPUP_HEIGHT = 'xm-select-popup-height',
+    // jh ================================================================================
     DISABLED = 'xm-dis-disabled',
     DIS = 'xm-select-dis',
     TEMP = 'xm-select-temp',
@@ -303,6 +306,9 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
           direction: othis.attr(DIRECTION),
           optionsFirst: select.options[0],
           height: othis.attr(HEIGHT),
+          // jh ================================================================================
+          popupHeight: othis.attr(POPUP_HEIGHT),
+          // jh ================================================================================
           formname: othis.attr('name') || othis.attr('_name'),
           layverify: othis.attr('lay-verify') || othis.attr('_lay-verify'),
           layverType: othis.attr('lay-verType'),
@@ -736,7 +742,11 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
     var pid = item[FORM_TEAM_PID];
     pid ? pid = JSON.parse(pid) : pid = [-1];
     var attr = pid[0] == -1 ? '' : 'tree-id="' + pid.join('-') + '" tree-folder="' + !!item['XM_TREE_FOLDER'] + '"';
-    return '<dd lay-value="' + item.value + '" class="' + (item.disabled ? DISABLED : '') + ' ' + (clz ? clz : '') + '" ' + attr + '>\n\t\t\t\t\t<div class="xm-unselect xm-form-checkbox ' + (item.disabled ? DISABLED : '') + '"  style="margin-left: ' + (pid.length - 1) * 30 + 'px">\n\t\t\t\t\t\t<i class="' + CHECKBOX_YES + '"></i>\n\t\t\t\t\t\t<span name="' + name + '">' + template + '</span>\n\t\t\t\t\t</div>\n\t\t\t\t</dd>';
+    return '<dd lay-value="' + item.value +
+      // jh ================================================================================
+      '" title="' + template +
+      // jh ================================================================================
+      '" class="' + (item.disabled ? DISABLED : '') + ' ' + (clz ? clz : '') + '" ' + attr + '>\n\t\t\t\t\t<div class="xm-unselect xm-form-checkbox ' + (item.disabled ? DISABLED : '') + '"  style="margin-left: ' + (pid.length - 1) * 30 + 'px">\n\t\t\t\t\t\t<i class="' + CHECKBOX_YES + '"></i>\n\t\t\t\t\t\t<span name="' + name + '">' + template + '</span>\n\t\t\t\t\t</div>\n\t\t\t\t</dd>';
   };
 
   Common.prototype.createQuickBtn = function(obj, right) {
@@ -1261,10 +1271,15 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
 
       // jh ================================================================================
       (function(self) {
+        var ajaxConfig = ajaxs[id] || ajax;
+        if (ajaxConfig._linkageType !== "all") {
+          return
+        }
+
         var i;
         for (i = 0; i < vals.length; i++) {
           var item = vals[i]
-          if (val.name.indexOf(item.name) === 0) {
+          if (val.value.toString().indexOf(item.value.toString()) === 0) {
             self.delLabel(id, div, item);
             self.remove(vals, item);
             break;
@@ -1388,17 +1403,46 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
       }
     }
     var reHeight = div[0].offsetTop + div.height() + base;
+    // jh ================================================================================
+    var popupHeight = "auto"
+    if (fs && fs.config.popupHeight) {
+      var a = fs.config.popupHeight
+      if (a[0] !== "-") {
+        a = "-" + a
+      }
+      popupHeight = a
+    }
     if (up) {
+      var style = {
+        top: popupHeight,
+        bottom: reHeight + 3 + 'px'
+      }
+      if (popupHeight !== "auto") {
+        style.maxHeight = fs.config.popupHeight
+      }
+      dl.css(style)
+    } else {
+      var style = {
+        top: reHeight + 'px',
+        bottom: popupHeight,
+      }
+      if (popupHeight !== "auto") {
+        style.maxHeight = fs.config.popupHeight
+      }
+      dl.css(style)
+    }
+    /* if (up) {
       dl.css({
-        top: 'auto',
+        top: "auto",
         bottom: reHeight + 3 + 'px'
       });
     } else {
       dl.css({
         top: reHeight + 'px',
-        bottom: 'auto'
+        bottom: "auto"
       });
-    }
+    } */
+    // jh ================================================================================
   };
 
   Common.prototype.changeShow = function(children, isShow) {
